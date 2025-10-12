@@ -67,7 +67,6 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
 
     unsigned char **problem_dirs = NULL;
     int problem_dir_count = 0;
-    unsigned char *first_problem_dir = NULL;
     int problem_dir_seen = 0;
 
 %><s:read var="prob_id" required="yes" /><%
@@ -129,10 +128,6 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
             }
         }
     }
-    if (problem_dir_seen && problem_dir_count > 0) {
-        first_problem_dir = xstrdup(problem_dirs[0]);
-    }
-
     if (type != NULL) {
         type_val = problem_parse_type(type);
         if (type_val < 0 || type_val >= PROB_TYPE_LAST) type_val = PROB_TYPE_STANDARD;
@@ -227,12 +222,8 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
         prob->variant_num = variant_num;
         prob->autoassign_variants = autoassign_variants;
         if (problem_dir_seen) {
-            sarray_free((char**) prob->variant_problem_dirs);
-            prob->variant_problem_dirs = problem_dirs;
+            prepare_problem_replace_variant_dirs(prob, problem_dirs);
             problem_dirs = NULL;
-            xfree(prob->problem_dir);
-            prob->problem_dir = first_problem_dir;
-            first_problem_dir = NULL;
         }
     }
 
@@ -254,5 +245,4 @@ cleanup:;
     xfree(long_name);
     xfree(super);
     sarray_free((char**) problem_dirs);
-    xfree(first_problem_dir);
 %>

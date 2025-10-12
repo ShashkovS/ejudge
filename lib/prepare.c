@@ -6009,6 +6009,34 @@ prepare_sync_problem_dir_from_variants(struct section_problem_data *prob)
 }
 
 void
+prepare_problem_replace_variant_dirs(struct section_problem_data *prob,
+                                     unsigned char **new_dirs)
+{
+  if (!prob) {
+    sarray_free((char **) new_dirs);
+    return;
+  }
+
+  if (prob->variant_problem_dirs) {
+    unsigned char *shared = NULL;
+    for (int i = 0; prob->variant_problem_dirs[i]; ++i) {
+      if (prob->problem_dir == prob->variant_problem_dirs[i]) {
+        shared = prob->variant_problem_dirs[i];
+        break;
+      }
+    }
+    sarray_free((char **) prob->variant_problem_dirs);
+    prob->variant_problem_dirs = NULL;
+    if (prob->problem_dir == shared) {
+      prob->problem_dir = NULL;
+    }
+  }
+
+  prob->variant_problem_dirs = new_dirs;
+  prepare_sync_problem_dir_from_variants(prob);
+}
+
+void
 prepare_set_prob_value(
         int field,
         struct section_problem_data *out,
