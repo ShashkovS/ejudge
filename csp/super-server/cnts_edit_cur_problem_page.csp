@@ -551,6 +551,7 @@ function refreshProblemDirEditors(preserve)
     var values = preserve ? getCurrentProblemDirValues() : explicitProblemDirs.slice();
 
     if (num <= 1) {
+        $("#edit-problem_dir").prop("disabled", false);
         $("#edit-problem_dir-multi").hide();
         $("#edit-problem_dir-single").show();
         var singleVal = values.length > 0 ? values[0] : "";
@@ -562,6 +563,7 @@ function refreshProblemDirEditors(preserve)
             $("#edit-problem_dir-single-default").text("").hide();
         }
     } else {
+        $("#edit-problem_dir").prop("disabled", true);
         $("#edit-problem_dir-single").hide();
         $("#edit-problem_dir-multi").show();
         var container = $("#edit-problem_dir_entries");

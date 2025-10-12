@@ -68,6 +68,7 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
     unsigned char **problem_dirs = NULL;
     int problem_dir_count = 0;
     unsigned char *first_problem_dir = NULL;
+    int problem_dir_seen = 0;
 
 %><s:read var="prob_id" required="yes" /><%
 %><s:read var="short_name" normalize="yes" nonnull="yes" /><%
@@ -81,9 +82,44 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
 
     if (retval || !phr->ss) goto cleanup;
 
-    if (!phr->json) {
+    if (phr->json) {
+        cJSON *dir_item = cJSON_GetObjectItem(phr->json, "problem_dir");
+        if (dir_item) {
+            problem_dir_seen = 1;
+            if (cJSON_IsArray(dir_item)) {
+                for (cJSON *elem = dir_item->child; elem; elem = elem->next) {
+                    if (cJSON_IsNull(elem)) {
+                        continue;
+                    }
+                    if (!cJSON_IsString(elem) || !elem->valuestring) {
+                        fprintf(msg_f, "problem_dir must be a string array<br/>");
+                        FAIL(SSERV_ERR_INVALID_PARAMETER);
+                    }
+                    const unsigned char *raw = (const unsigned char *) elem->valuestring;
+                    unsigned char *normalized = normalize_problem_dir_param(raw, strlen((const char *) raw));
+                    if (normalized) {
+                        problem_dirs = xrealloc(problem_dirs, sizeof(*problem_dirs) * (problem_dir_count + 2));
+                        problem_dirs[problem_dir_count++] = normalized;
+                        problem_dirs[problem_dir_count] = NULL;
+                    }
+                }
+            } else if (cJSON_IsString(dir_item) && dir_item->valuestring) {
+                const unsigned char *raw = (const unsigned char *) dir_item->valuestring;
+                unsigned char *normalized = normalize_problem_dir_param(raw, strlen((const char *) raw));
+                if (normalized) {
+                    problem_dirs = xrealloc(problem_dirs, sizeof(*problem_dirs) * (problem_dir_count + 2));
+                    problem_dirs[problem_dir_count++] = normalized;
+                    problem_dirs[problem_dir_count] = NULL;
+                }
+            } else if (!cJSON_IsNull(dir_item)) {
+                fprintf(msg_f, "problem_dir must be a string or an array of strings<br/>");
+                FAIL(SSERV_ERR_INVALID_PARAMETER);
+            }
+        }
+    } else {
         for (i = 0; i < phr->param_num; ++i) {
             if (!strcmp(phr->param_names[i], "problem_dir")) {
+                problem_dir_seen = 1;
                 unsigned char *normalized = normalize_problem_dir_param(phr->params[i], phr->param_sizes[i]);
                 if (normalized) {
                     problem_dirs = xrealloc(problem_dirs, sizeof(*problem_dirs) * (problem_dir_count + 2));
@@ -92,9 +128,9 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
                 }
             }
         }
-        if (problem_dir_count > 0) {
-            first_problem_dir = xstrdup(problem_dirs[0]);
-        }
+    }
+    if (problem_dir_seen && problem_dir_count > 0) {
+        first_problem_dir = xstrdup(problem_dirs[0]);
     }
 
     if (type != NULL) {
@@ -170,7 +206,7 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
 
     int normalized_variant_num = variant_num;
     if (normalized_variant_num < 0) normalized_variant_num = 0;
-    if (problem_dir_count > 0) {
+    if (problem_dir_seen) {
         if (normalized_variant_num > 1 && problem_dir_count != normalized_variant_num) {
             fprintf(msg_f, "problem_dir entries (%d) must match variant_num (%d)<br/>", problem_dir_count, normalized_variant_num);
             FAIL(SSERV_ERR_INVALID_PARAMETER);
@@ -190,12 +226,14 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
         prob->type = type_val;
         prob->variant_num = variant_num;
         prob->autoassign_variants = autoassign_variants;
-        sarray_free((char**) prob->variant_problem_dirs);
-        prob->variant_problem_dirs = problem_dirs;
-        problem_dirs = NULL;
-        xfree(prob->problem_dir);
-        prob->problem_dir = first_problem_dir;
-        first_problem_dir = NULL;
+        if (problem_dir_seen) {
+            sarray_free((char**) prob->variant_problem_dirs);
+            prob->variant_problem_dirs = problem_dirs;
+            problem_dirs = NULL;
+            xfree(prob->problem_dir);
+            prob->problem_dir = first_problem_dir;
+            first_problem_dir = NULL;
+        }
     }
 
 cleanup:;
