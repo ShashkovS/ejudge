@@ -151,6 +151,18 @@ static const unsigned char * const form_row_attrs[]=
         <%@expand MENU_TEXTFIELD "variant_num" "id" "Number of variants" "250" %>
         <%@expand MENU_YESNO3 "autoassign_variants" "id" "Assign variants automatically" "250" %>
 
+        <div id="edit-problem_dir-single" style="display:none;">
+            <div style="width: 250px; display: inline-block;"><label style="display:block; width: 250px" for="edit-problem_dir">Problems dir:</label></div>
+            <input type="text" size="40" name="problem_dir" id="edit-problem_dir" value="" class="text ui-widget-content ui-corner-all" />
+            <div id="edit-problem_dir-single-default" class="problem-dir-default" style="display:none; margin-left: 250px;"></div>
+        </div>
+
+        <div id="edit-problem_dir-multi" style="display:none;">
+            <div style="width: 250px; display: inline-block;"><span style="display:block; width: 250px">Problems dir:</span></div>
+            <div id="edit-problem_dir_entries" class="problem-dir-entries"></div>
+            <div class="problem-dir-note" style="margin-left: 250px;">Provide a directory for each variant.</div>
+        </div>
+
     </s:form>
 </div>
 
@@ -457,6 +469,138 @@ function toBool(str, def)
     }
 }
 
+var explicitProblemDirs = [
+<%
+    int first_dir = 1;
+    if (prob->variant_problem_dirs) {
+        for (j = 0; prob->variant_problem_dirs[j]; ++j) {
+            if (!first_dir) {
+%>, <%
+            }
+%><s:v value="prob->variant_problem_dirs[j]" json="yes" />
+<%
+            first_dir = 0;
+        }
+    } else if (prob->problem_dir && prob->problem_dir[0]) {
+%><s:v value="prob->problem_dir" json="yes" />
+<%
+        first_dir = 0;
+    }
+%>
+];
+
+var defaultProblemDirs = [
+<%
+    first_dir = 1;
+    if (tmp_prob->variant_problem_dirs) {
+        for (j = 0; tmp_prob->variant_problem_dirs[j]; ++j) {
+            if (!first_dir) {
+%>, <%
+            }
+%><s:v value="tmp_prob->variant_problem_dirs[j]" json="yes" />
+<%
+            first_dir = 0;
+        }
+    } else if (tmp_prob->problem_dir && tmp_prob->problem_dir[0]) {
+%><s:v value="tmp_prob->problem_dir" json="yes" />
+<%
+        first_dir = 0;
+    }
+%>
+];
+
+var problemDirEditorsInitialized = false;
+var problemDirPendingClear = false;
+
+function normalizedVariantNum()
+{
+    var raw = parseInt($("#edit-variant_num").val(), 10);
+    if (!isFinite(raw) || raw < 0) raw = 0;
+    return raw;
+}
+
+function getCurrentProblemDirValues()
+{
+    var values = [];
+    if ($("#edit-problem_dir-multi").is(":visible")) {
+        $("#edit-problem_dir_entries input[name='problem_dir']").each(function() {
+            values.push($(this).val());
+        });
+    } else if ($("#edit-problem_dir-single").is(":visible")) {
+        var singleVal = $("#edit-problem_dir").val();
+        if (singleVal !== undefined) {
+            values.push(singleVal);
+        }
+    }
+    return values;
+}
+
+function applyProblemDirDefaults(entryNode, idx, currentValue)
+{
+    var defaultVal = defaultProblemDirs.length > idx ? defaultProblemDirs[idx] : undefined;
+    if (!defaultVal || defaultVal.length === 0) {
+        return;
+    }
+    if (currentValue && currentValue.length > 0 && currentValue === defaultVal) {
+        return;
+    }
+    var hintNode = $("<span class='problem-dir-default'></span>");
+    hintNode.text(" Default: " + defaultVal);
+    entryNode.append(hintNode);
+}
+
+function refreshProblemDirEditors(preserve)
+{
+    var num = normalizedVariantNum();
+    var values = preserve ? getCurrentProblemDirValues() : explicitProblemDirs.slice();
+
+    if (num <= 1) {
+        $("#edit-problem_dir-multi").hide();
+        $("#edit-problem_dir-single").show();
+        var singleVal = values.length > 0 ? values[0] : "";
+        $("#edit-problem_dir").val(singleVal || "");
+        var singleDefault = defaultProblemDirs.length > 0 ? defaultProblemDirs[0] : "";
+        if (singleDefault && singleDefault.length > 0 && (!singleVal || singleVal !== singleDefault)) {
+            $("#edit-problem_dir-single-default").text("Default: " + singleDefault).show();
+        } else {
+            $("#edit-problem_dir-single-default").text("").hide();
+        }
+    } else {
+        $("#edit-problem_dir-single").hide();
+        $("#edit-problem_dir-multi").show();
+        var container = $("#edit-problem_dir_entries");
+        container.empty();
+        for (var idx = 0; idx < num; ++idx) {
+            var entry = $("<div class='problem-dir-entry'></div>");
+            var label = $("<label></label>").attr("for", "edit-problem_dir_" + idx);
+            label.text("Variant " + (idx + 1) + ":");
+            label.css({"display": "inline-block", "width": "150px"});
+            var input = $("<input type='text' class='text ui-widget-content ui-corner-all'>");
+            input.attr("name", "problem_dir");
+            input.attr("id", "edit-problem_dir_" + idx);
+            input.attr("size", "40");
+            var value = values.length > idx ? values[idx] : (explicitProblemDirs.length > idx ? explicitProblemDirs[idx] : "");
+            input.val(value || "");
+            entry.append(label).append(input);
+            applyProblemDirDefaults(entry, idx, value || "");
+            container.append(entry);
+        }
+        if (num === 0) {
+            $("#edit-problem_dir-multi").hide();
+        }
+    }
+}
+
+function clearProblemDirEditors()
+{
+    if ($("#edit-problem_dir-multi").is(":visible")) {
+        $("#edit-problem_dir_entries input[name='problem_dir']").val("");
+    }
+    if ($("#edit-problem_dir-single").is(":visible")) {
+        $("#edit-problem_dir").val("");
+    }
+}
+
 function popupIdDialog(e, skipField)
 {
     $("#IdDialogProbId").val(prob_id);
@@ -475,6 +619,9 @@ function popupIdDialog(e, skipField)
     <%@expand CLEAR_TEXTFIELD "uuid" %>
     <%@expand CLEAR_TEXTFIELD "long_name" %>
 
+    problemDirEditorsInitialized = false;
+    problemDirPendingClear = (skipField === 'problem_dir');
+
     if (e) e.stopPropagation();
     idDialogOnChange();
     $("#IdDialogDiv").dialog('open');
@@ -489,6 +636,13 @@ function idDialogOnChange()
     $("#edit-variant_num-div").toggle(<s:v type="jsbool" value="prob_id > 0" />);
     var num = parseInt($("#edit-variant_num").val());
     $("#edit-autoassign_variants-div").toggle(num > 0);
+    refreshProblemDirEditors(problemDirEditorsInitialized);
+    if (problemDirPendingClear) {
+        clearProblemDirEditors();
+        problemDirPendingClear = false;
+        refreshProblemDirEditors(true);
+    }
+    problemDirEditorsInitialized = true;
 }
 
 function popupFilesDialog(e, skipField)
@@ -708,6 +862,77 @@ function viewDialogOnChange(field)
     }
 %></td>
                 <td onclick="np(event);"><s:help topic="Serve.cfg:problem:variant_num" /></td>
+            </s:tr>
+
+            <s:tr attr="form_row_attrs[row ^= 1]" id="orig-problem_dir-div">
+                <td>Problems dir:</td>
+                <td>
+<%
+    int show_multi = 0;
+    int variant_display = prob->variant_num;
+    if (variant_display <= 0 && tmp_prob && tmp_prob->variant_num > 0) {
+        variant_display = tmp_prob->variant_num;
+    }
+    if (variant_display > 1) show_multi = 1;
+    const unsigned char *explicit_dir = NULL;
+    const unsigned char *effective_dir = NULL;
+    if (!show_multi) {
+        if (prob->problem_dir && prob->problem_dir[0]) {
+            explicit_dir = prob->problem_dir;
+        } else if (prob->variant_problem_dirs && prob->variant_problem_dirs[0]
+                   && prob->variant_problem_dirs[0][0]) {
+            explicit_dir = prob->variant_problem_dirs[0];
+        }
+        if (tmp_prob->problem_dir && tmp_prob->problem_dir[0]) {
+            effective_dir = tmp_prob->problem_dir;
+        } else if (tmp_prob->variant_problem_dirs && tmp_prob->variant_problem_dirs[0]
+                   && tmp_prob->variant_problem_dirs[0][0]) {
+            effective_dir = tmp_prob->variant_problem_dirs[0];
+        }
+        str_value = explicit_dir;
+%><s:textfield id="orig-problem_dir" readonly="readonly" name="param" value="str_value" size="48" maxlength="1024" checkExpr="" /><%
+        if (!str_value) {
+            if (effective_dir) {
+%>(<i><s:v value="effective_dir" /></i>)<%
+            } else {
+%>(<i>Not set</i>)<%
+            }
+        }
+    } else {
+%>
+                    <table class="problem-dir-overview">
+<%
+        for (j = 0; j < variant_display; ++j) {
+            const unsigned char *explicit_value = NULL;
+            const unsigned char *effective_value = NULL;
+            if (prob->variant_problem_dirs && prob->variant_problem_dirs[j]
+                && prob->variant_problem_dirs[j][0]) {
+                explicit_value = prob->variant_problem_dirs[j];
+            }
+            if (tmp_prob->variant_problem_dirs && tmp_prob->variant_problem_dirs[j]
+                && tmp_prob->variant_problem_dirs[j][0]) {
+                effective_value = tmp_prob->variant_problem_dirs[j];
+            }
+%>
+                        <tr><td style="padding-right: 8px;">Variant <s:v value="j + 1" />:</td><td><%
+            if (explicit_value) {
+%><s:v value="explicit_value" /><%
+            } else if (effective_value) {
+%><i><s:v value="effective_value" /></i><%
+            } else {
+%><i>Not set</i><%
+            }
+%></td></tr>
+<%
+        }
+%>
+                    </table>
+<%
+    }
+%>
+                </td>
+                <td><input type="button" onclick="popupIdDialog(event, 'problem_dir')" value="Clear" /></td>
+                <td onclick="np(event);"><s:help topic="Serve.cfg:problem:problem_dir" /></td>
             </s:tr>
 
             <%@expand ORIG_INHERITABLE_BOOLEAN "autoassign_variants" "Id" "Assign variants automatically" %>

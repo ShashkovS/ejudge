@@ -4,6 +4,40 @@
 #define COPYSTR(f) snprintf(prob->f, sizeof(prob->f), "%s", (f))
 #define MOVESTR(f) xfree(prob->f); prob->f = f; f = NULL
 
+static unsigned char *
+normalize_problem_dir_param(const unsigned char *raw, size_t len)
+{
+    size_t start = 0;
+    while (start < len && (raw[start] <= ' ' || raw[start] == 0x7f)) ++start;
+    while (len > start && (raw[len - 1] <= ' ' || raw[len - 1] == 0x7f)) --len;
+    if (len <= start) return NULL;
+    unsigned char *out = xmalloc(len - start + 1);
+    size_t pos = 0;
+    for (size_t idx = start; idx < len; ++idx) {
+        unsigned char ch = raw[idx];
+        if (ch <= ' ' || ch == 0x7f) {
+            out[pos++] = ' ';
+            while (idx + 1 < len) {
+                unsigned char next = raw[idx + 1];
+                if (next <= ' ' || next == 0x7f) {
+                    ++idx;
+                } else {
+                    break;
+                }
+            }
+        } else {
+            out[pos++] = ch;
+        }
+    }
+    while (pos > 0 && out[pos - 1] == ' ') --pos;
+    if (pos == 0) {
+        xfree(out);
+        return NULL;
+    }
+    out[pos] = 0;
+    return out;
+}
+
 %><%@set getter_name = "csp_get_prob_save_id_form"
 %><%@set ac_prefix = "SSERV_CMD_"
 %><%@set err_prefix = "SSERV_ERR_"
@@ -31,6 +65,10 @@
     size_t msg_z = 0;
     FILE *msg_f = open_memstream(&msg_s, &msg_z);
 
+    unsigned char **problem_dirs = NULL;
+    int problem_dir_count = 0;
+    unsigned char *first_problem_dir = NULL;
+
 %><s:read var="prob_id" required="yes" /><%
 %><s:read var="short_name" normalize="yes" nonnull="yes" /><%
 %><s:read var="internal_name" normalize="yes" /><%
@@ -42,6 +80,22 @@
 %><s:read var="autoassign_variants" default="-1" /><%
 
     if (retval || !phr->ss) goto cleanup;
+
+    if (!phr->json) {
+        for (i = 0; i < phr->param_num; ++i) {
+            if (!strcmp(phr->param_names[i], "problem_dir")) {
+                unsigned char *normalized = normalize_problem_dir_param(phr->params[i], phr->param_sizes[i]);
+                if (normalized) {
+                    problem_dirs = xrealloc(problem_dirs, sizeof(*problem_dirs) * (problem_dir_count + 2));
+                    problem_dirs[problem_dir_count++] = normalized;
+                    problem_dirs[problem_dir_count] = NULL;
+                }
+            }
+        }
+        if (problem_dir_count > 0) {
+            first_problem_dir = xstrdup(problem_dirs[0]);
+        }
+    }
 
     if (type != NULL) {
         type_val = problem_parse_type(type);
@@ -114,6 +168,19 @@
         if (autoassign_variants > 0) autoassign_variants = 1;
     }
 
+    int normalized_variant_num = variant_num;
+    if (normalized_variant_num < 0) normalized_variant_num = 0;
+    if (problem_dir_count > 0) {
+        if (normalized_variant_num > 1 && problem_dir_count != normalized_variant_num) {
+            fprintf(msg_f, "problem_dir entries (%d) must match variant_num (%d)<br/>", problem_dir_count, normalized_variant_num);
+            FAIL(SSERV_ERR_INVALID_PARAMETER);
+        }
+        if (normalized_variant_num <= 1 && problem_dir_count > 1) {
+            fprintf(msg_f, "multiple problem_dir entries require variant_num > 1<br/>");
+            FAIL(SSERV_ERR_INVALID_PARAMETER);
+        }
+    }
+
     if (!retval && phr->ss) {
         COPYSTR(short_name);
         MOVESTR(internal_name);
@@ -123,6 +190,12 @@
         prob->type = type_val;
         prob->variant_num = variant_num;
         prob->autoassign_variants = autoassign_variants;
+        sarray_free(prob->variant_problem_dirs);
+        prob->variant_problem_dirs = problem_dirs;
+        problem_dirs = NULL;
+        xfree(prob->problem_dir);
+        prob->problem_dir = first_problem_dir;
+        first_problem_dir = NULL;
     }
 
 cleanup:;
@@ -142,4 +215,6 @@ cleanup:;
     xfree(uuid);
     xfree(long_name);
     xfree(super);
+    sarray_free(problem_dirs);
+    xfree(first_problem_dir);
 %>
