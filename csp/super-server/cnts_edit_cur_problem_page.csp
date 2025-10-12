@@ -15,6 +15,7 @@
     int row = 1;
     int cur_page = 4;
     int i;
+    int j;
     int prob_id = 0;
     const struct section_problem_data *prob = NULL;
     struct section_problem_data *tmp_prob = NULL;
@@ -52,7 +53,6 @@ static const unsigned char * const form_row_attrs[]=
         if (!prob) FAIL(SSERV_ERR_INVALID_PARAMETER);
         snprintf(subtitle_buf, sizeof(subtitle_buf), "editing serve.cfg, problem %d", i);
 
-        int j;
         if (prob->super && prob->super[0]) {
             for (j = 0; j < phr->ss->aprob_u; ++j) {
                 if (!strcmp(prob->super, phr->ss->aprobs[j]->short_name)) {
