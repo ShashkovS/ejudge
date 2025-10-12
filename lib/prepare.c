@@ -3131,9 +3131,7 @@ prepare_problem(
 
   if (prob->variant_problem_dirs) {
     int dir_count = sarray_len((char**) prob->variant_problem_dirs);
-    if (dir_count > 0) {
-      prob->problem_dir = prob->variant_problem_dirs[0];
-    }
+    prepare_sync_problem_dir_from_variants(prob);
     if (prob->variant_num > 1) {
       if (dir_count == 0) {
         const unsigned char *prob_name = prob->short_name[0]
@@ -5976,6 +5974,38 @@ prepare_copy_problem(const struct section_problem_data *in)
   return out;
 }
 
+static void
+prepare_sync_problem_dir_from_variants(struct section_problem_data *prob)
+{
+  if (!prob) return;
+
+  unsigned char *first = NULL;
+  if (prob->variant_problem_dirs && prob->variant_problem_dirs[0]) {
+    first = prob->variant_problem_dirs[0];
+  }
+
+  if (!first) {
+    if (prob->problem_dir) {
+      xfree(prob->problem_dir);
+      prob->problem_dir = NULL;
+    }
+    return;
+  }
+
+  if (prob->problem_dir == first) {
+    prob->problem_dir = xstrdup(first);
+    return;
+  }
+
+  if (prob->problem_dir
+      && strcmp((const char*) prob->problem_dir, (const char*) first) == 0) {
+    return;
+  }
+
+  xfree(prob->problem_dir);
+  prob->problem_dir = xstrdup(first);
+}
+
 void
 prepare_set_prob_value(
         int field,
@@ -6028,7 +6058,7 @@ prepare_set_prob_value(
           usprintf(&out->variant_problem_dirs[i], "%s/%s", base, entry);
         }
       }
-      out->problem_dir = out->variant_problem_dirs[0];
+      prepare_sync_problem_dir_from_variants(out);
     } else if (abstr && abstr->problem_dir && abstr->problem_dir[0] == '/'
                && out->problem_dir && *out->problem_dir
                && *out->problem_dir != '/' && *out->problem_dir != '.') {
