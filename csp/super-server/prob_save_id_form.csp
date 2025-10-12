@@ -190,7 +190,7 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
         prob->type = type_val;
         prob->variant_num = variant_num;
         prob->autoassign_variants = autoassign_variants;
-        sarray_free(prob->variant_problem_dirs);
+        sarray_free((char**) prob->variant_problem_dirs);
         prob->variant_problem_dirs = problem_dirs;
         problem_dirs = NULL;
         xfree(prob->problem_dir);
@@ -215,6 +215,6 @@ cleanup:;
     xfree(uuid);
     xfree(long_name);
     xfree(super);
-    sarray_free(problem_dirs);
+    sarray_free((char**) problem_dirs);
     xfree(first_problem_dir);
 %>
