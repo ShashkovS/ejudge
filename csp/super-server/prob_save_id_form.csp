@@ -208,6 +208,11 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
     }
 
     int normalized_variant_num = variant_num;
+    if (normalized_variant_num < 0 && prob) {
+        int current = prob->variant_num;
+        if (current < 0) current = 0;
+        normalized_variant_num = current;
+    }
     if (normalized_variant_num < 0) normalized_variant_num = 0;
     if (problem_dir_seen) {
         if (normalized_variant_num > 1 && problem_dir_count != normalized_variant_num) {
