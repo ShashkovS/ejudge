@@ -4,6 +4,13 @@
 #define COPYSTR(f) snprintf(prob->f, sizeof(prob->f), "%s", (f))
 #define MOVESTR(f) xfree(prob->f); prob->f = f; f = NULL
 
+static int
+cjson_base_type(const cJSON *item)
+{
+    if (!item) return 0;
+    return item->type & 0xff;
+}
+
 static unsigned char *
 normalize_problem_dir_param(const unsigned char *raw, size_t len)
 {
@@ -85,12 +92,13 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
         cJSON *dir_item = cJSON_GetObjectItem(phr->json, "problem_dir");
         if (dir_item) {
             problem_dir_seen = 1;
-            if (cJSON_IsArray(dir_item)) {
+            if (cjson_base_type(dir_item) == cJSON_Array) {
                 for (cJSON *elem = dir_item->child; elem; elem = elem->next) {
-                    if (cJSON_IsNull(elem)) {
+                    int elem_type = cjson_base_type(elem);
+                    if (elem_type == cJSON_NULL) {
                         continue;
                     }
-                    if (!cJSON_IsString(elem) || !elem->valuestring) {
+                    if (elem_type != cJSON_String || !elem->valuestring) {
                         fprintf(msg_f, "problem_dir must be a string array<br/>");
                         FAIL(SSERV_ERR_INVALID_PARAMETER);
                     }
@@ -102,7 +110,7 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
                         problem_dirs[problem_dir_count] = NULL;
                     }
                 }
-            } else if (cJSON_IsString(dir_item) && dir_item->valuestring) {
+            } else if (cjson_base_type(dir_item) == cJSON_String && dir_item->valuestring) {
                 const unsigned char *raw = (const unsigned char *) dir_item->valuestring;
                 unsigned char *normalized = normalize_problem_dir_param(raw, strlen((const char *) raw));
                 if (normalized) {
@@ -110,7 +118,7 @@ normalize_problem_dir_param(const unsigned char *raw, size_t len)
                     problem_dirs[problem_dir_count++] = normalized;
                     problem_dirs[problem_dir_count] = NULL;
                 }
-            } else if (!cJSON_IsNull(dir_item)) {
+            } else if (cjson_base_type(dir_item) != cJSON_NULL) {
                 fprintf(msg_f, "problem_dir must be a string or an array of strings<br/>");
                 FAIL(SSERV_ERR_INVALID_PARAMETER);
             }
