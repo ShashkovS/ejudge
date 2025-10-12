@@ -477,13 +477,11 @@ var explicitProblemDirs = [
             if (!first_dir) {
 %>, <%
             }
-%><s:v value="prob->variant_problem_dirs[j]" json="yes" />
-<%
+%>"<s:v value="prob->variant_problem_dirs[j]" json="yes" />"<%
             first_dir = 0;
         }
     } else if (prob->problem_dir && prob->problem_dir[0]) {
-%><s:v value="prob->problem_dir" json="yes" />
-<%
+%>"<s:v value="prob->problem_dir" json="yes" />"<%
         first_dir = 0;
     }
 %>
@@ -497,13 +495,11 @@ var defaultProblemDirs = [
             if (!first_dir) {
 %>, <%
             }
-%><s:v value="tmp_prob->variant_problem_dirs[j]" json="yes" />
-<%
+%>"<s:v value="tmp_prob->variant_problem_dirs[j]" json="yes" />"<%
             first_dir = 0;
         }
     } else if (tmp_prob->problem_dir && tmp_prob->problem_dir[0]) {
-%><s:v value="tmp_prob->problem_dir" json="yes" />
-<%
+%>"<s:v value="tmp_prob->problem_dir" json="yes" />"<%
         first_dir = 0;
     }
 %>
