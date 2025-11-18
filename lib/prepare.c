@@ -2618,7 +2618,7 @@ prepare_problem(
     }
     aprob = abstr_probs[si];
     if (aprob->problem_dir) {
-      xstrdup2(&prob->abstract_problem_dir, aprob->problem_dir);
+      prob->abstract_problem_dir = (unsigned char *) xstrdup(aprob->problem_dir);
     }
   }
 
