@@ -1087,6 +1087,12 @@ struct section_problem_data
   unsigned char *uuid;
   /** problem directory (relative to problems or absolute) */
   unsigned char *problem_dir;
+  /** per-variant problem directories specified after variant_num */
+  unsigned char **variant_problem_dirs META_ATTRIB((meta_private));
+  /** abstract problem_dir of the parent problem, if any */
+  unsigned char *abstract_problem_dir META_ATTRIB((meta_private));
+  /** true if variant_num was explicitly set while parsing */
+  ejbyteflag_t variant_num_parsed META_ATTRIB((meta_private));
   /** directory with tests */
   unsigned char *test_dir;
   /** test files suffix */

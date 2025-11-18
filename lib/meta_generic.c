@@ -18,6 +18,9 @@
 #include "ejudge/misctext.h"
 #include "ejudge/xml_utils.h"
 #include "ejudge/charsets.h"
+#include "ejudge/parsecfg.h"
+#include "ejudge/prepare.h"
+#include "ejudge/meta/prepare_meta.h"
 
 #include "ejudge/xalloc.h"
 #include "ejudge/logger.h"
@@ -405,6 +408,10 @@ meta_parse_string(
           fprintf(log_f, "%d: invalid value of numeric parameter for '%s'\n", lineno, name);
           return -1;
         }
+        if (mm == &cntsprob_methods && field_id == CNTSPROB_variant_num) {
+          struct section_problem_data *prob = (struct section_problem_data *) obj;
+          prob->variant_num_parsed = (v > 0);
+        }
         *(int*) fp = (int) v;
       }
       break;
@@ -466,6 +473,20 @@ meta_parse_string(
 
     case 's':                   /* char * type */
       {
+        if (mm == &cntsprob_methods && field_id == CNTSPROB_problem_dir) {
+          struct section_problem_data *prob = (struct section_problem_data *) obj;
+          if (prob->variant_num_parsed) {
+            char *decoded_value = NULL;
+            if (charset_id > 0) {
+              decoded_value = charset_decode_to_heap(charset_id, value);
+            } else {
+              decoded_value = xstrdup(value);
+            }
+            prob->variant_problem_dirs = (unsigned char **) sarray_append((char **) prob->variant_problem_dirs, decoded_value);
+            xfree(decoded_value);
+            break;
+          }
+        }
         char **pptr = (char**) fp;
         if (*pptr) {
           xfree(*pptr); *pptr = NULL;

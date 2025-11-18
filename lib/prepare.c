@@ -35,6 +35,7 @@
 #include "ejudge/dates_config.h"
 #include "ejudge/l10n.h"
 #include "ejudge/markdown.h"
+#include "ejudge/parsecfg.h"
 
 #include "ejudge/xalloc.h"
 #include "ejudge/logger.h"
@@ -1403,6 +1404,11 @@ prepare_problem_free_func(struct generic_section_config *gp)
     xfree(p->var_xml_file_paths);
   }
 
+  if (p->variant_problem_dirs) {
+    sarray_free((char **) p->variant_problem_dirs);
+  }
+  xfree(p->abstract_problem_dir);
+
   if (p->md_files) {
     for (int i = 0; i < p->md_size; ++i) {
       xfree(p->md_files[i].path);
@@ -2611,6 +2617,9 @@ prepare_problem(
       return -1;
     }
     aprob = abstr_probs[si];
+    if (aprob->problem_dir) {
+      xstrdup2(&prob->abstract_problem_dir, aprob->problem_dir);
+    }
   }
 
   if (!prob->short_name[0] && g->auto_short_problem_name > 0) {
@@ -3161,6 +3170,18 @@ prepare_problem(
   }
   if (prob->variant_num < 0) {
     prob->variant_num = 0;
+  }
+
+  int variant_dir_count = sarray_len((char **) prob->variant_problem_dirs);
+  if (prob->variant_num > 0) {
+    if (variant_dir_count && variant_dir_count != 1 && variant_dir_count != prob->variant_num) {
+      err("problem %s: number of problem_dir entries (%d) must be 1 or %d for variant_num=%d",
+          prob->short_name, variant_dir_count, prob->variant_num, prob->variant_num);
+      return -1;
+    }
+  } else if (variant_dir_count > 0) {
+    err("problem %s: problem_dir entries after variant_num require variant_num > 0", prob->short_name);
+    return -1;
   }
 
   if (prob->test_sets) {
@@ -5972,6 +5993,14 @@ prepare_copy_problem(const struct section_problem_data *in)
 
   out->normalization_val = in->normalization_val;
 
+  if (in->variant_problem_dirs) {
+    out->variant_problem_dirs = (unsigned char **) sarray_copy((char **) in->variant_problem_dirs);
+  }
+  if (in->abstract_problem_dir) {
+    out->abstract_problem_dir = xstrdup(in->abstract_problem_dir);
+  }
+  out->variant_num_parsed = in->variant_num_parsed;
+
   return out;
 }
 
@@ -6909,6 +6938,76 @@ prepare_set_all_prob_values(
   }
 }
 
+static void
+get_problems_root(path_t path1, size_t size, const struct section_global_data *global)
+{
+  if (global->problems_dir && global->problems_dir[0]) {
+    if (os_IsAbsolutePath(global->problems_dir)) {
+      snprintf(path1, size, "%s", global->problems_dir);
+    } else {
+      snprintf(path1, size, "%s/%s", global->root_dir, global->problems_dir);
+    }
+  } else {
+    snprintf(path1, size, "%s/%s", global->root_dir, DFLT_G_PROBLEMS_DIR);
+  }
+}
+
+static const unsigned char *
+get_default_problem_name(const struct section_problem_data *prob)
+{
+  if (!prob) return NULL;
+  if (prob->internal_name) return prob->internal_name;
+  return prob->short_name;
+}
+
+static const unsigned char *
+resolve_problem_dir_path(
+        unsigned char *buf,
+        size_t bufsize,
+        const struct section_global_data *global,
+        const struct section_problem_data *prob,
+        const unsigned char *concrete_dir,
+        const unsigned char *name_override)
+{
+  path_t path1;
+  const unsigned char *abstract_dir = prob ? prob->abstract_problem_dir : NULL;
+  const unsigned char *name = name_override ? name_override : get_default_problem_name(prob);
+
+  get_problems_root(path1, sizeof(path1), global);
+
+  if ((!abstract_dir || !*abstract_dir) && (!concrete_dir || !*concrete_dir)) {
+    snprintf(buf, bufsize, "%s/%s", path1, name);
+    return buf;
+  }
+
+  if ((!concrete_dir || !*concrete_dir) && abstract_dir && *abstract_dir) {
+    if (os_IsAbsolutePath(abstract_dir)) {
+      snprintf(buf, bufsize, "%s/%s", abstract_dir, name);
+    } else {
+      snprintf(buf, bufsize, "%s/%s/%s", path1, abstract_dir, name);
+    }
+    return buf;
+  }
+
+  if (concrete_dir && os_IsAbsolutePath(concrete_dir)) {
+    snprintf(buf, bufsize, "%s", concrete_dir);
+    return buf;
+  }
+
+  if (!abstract_dir || !*abstract_dir) {
+    snprintf(buf, bufsize, "%s/%s", path1, concrete_dir);
+    return buf;
+  }
+
+  if (os_IsAbsolutePath(abstract_dir)) {
+    snprintf(buf, bufsize, "%s/%s", abstract_dir, concrete_dir);
+  } else {
+    snprintf(buf, bufsize, "%s/%s/%s", path1, abstract_dir, concrete_dir);
+  }
+
+  return buf;
+}
+
 const unsigned char*
 get_advanced_layout_path(
         unsigned char *buf,
@@ -6918,18 +7017,29 @@ get_advanced_layout_path(
         const unsigned char *entry,
         int variant)
 {
-  path_t path1;
-  const unsigned char *prob_name;
+  path_t base_dir;
+  int variant_num = prob ? prob->variant_num : 0;
+  int variant_dir_count = prob ? sarray_len((char **) prob->variant_problem_dirs) : 0;
 
-  if (prob && prob->problem_dir && prob->problem_dir[0] == '/') {
+  if (!prob) {
+    get_problems_root(base_dir, sizeof(base_dir), global);
     if (!entry) {
-      if (variant < 0 || prob->variant_num <= 0) {
+      snprintf(buf, bufsize, "%s", base_dir);
+    } else {
+      snprintf(buf, bufsize, "%s/%s", base_dir, entry);
+    }
+    return buf;
+  }
+
+  if (prob->problem_dir && prob->problem_dir[0] == '/') {
+    if (!entry) {
+      if (variant < 0 || variant_num <= 0) {
         snprintf(buf, bufsize, "%s", prob->problem_dir);
       } else {
         snprintf(buf, bufsize, "%s-%d", prob->problem_dir, variant);
       }
     } else {
-      if (variant < 0 || prob->variant_num <= 0) {
+      if (variant < 0 || variant_num <= 0) {
         snprintf(buf, bufsize, "%s/%s", prob->problem_dir, entry);
       } else {
         snprintf(buf, bufsize, "%s-%d/%s", prob->problem_dir, variant, entry);
@@ -6938,39 +7048,50 @@ get_advanced_layout_path(
     return buf;
   }
 
-  if (global->problems_dir && global->problems_dir[0]) {
-    if (os_IsAbsolutePath(global->problems_dir)) {
-      snprintf(path1, sizeof(path1), "%s", global->problems_dir);
-    } else {
-      snprintf(path1, sizeof(path1), "%s/%s", global->root_dir, global->problems_dir);
+  if (variant_num > 0 && variant_dir_count > 0) {
+    if (variant_dir_count == 1) {
+      resolve_problem_dir_path(base_dir, sizeof(base_dir), global, prob, prob->variant_problem_dirs[0], NULL);
+      if (!entry) {
+        if (variant < 0 || variant_num <= 0) {
+          snprintf(buf, bufsize, "%s", base_dir);
+        } else {
+          snprintf(buf, bufsize, "%s-%d", base_dir, variant);
+        }
+      } else {
+        if (variant < 0 || variant_num <= 0) {
+          snprintf(buf, bufsize, "%s/%s", base_dir, entry);
+        } else {
+          snprintf(buf, bufsize, "%s-%d/%s", base_dir, variant, entry);
+        }
+      }
+      return buf;
+    } else if (variant_dir_count == variant_num) {
+      int eff_variant = variant;
+      if (eff_variant <= 0 || eff_variant > variant_num) eff_variant = 1;
+      resolve_problem_dir_path(base_dir, sizeof(base_dir), global, prob,
+                               prob->variant_problem_dirs[eff_variant - 1], NULL);
+      if (!entry) {
+        snprintf(buf, bufsize, "%s", base_dir);
+      } else {
+        snprintf(buf, bufsize, "%s/%s", base_dir, entry);
+      }
+      return buf;
     }
-  } else {
-    snprintf(path1, sizeof(path1), "%s/%s", global->root_dir, DFLT_G_PROBLEMS_DIR);
   }
 
-  if (!prob) {
-    snprintf(buf, bufsize, "%s", path1);
-    return buf;
-  }
-
-  prob_name = prob->short_name;
-  if (prob->problem_dir && prob->problem_dir[0]) {
-    prob_name = prob->problem_dir;
-  } else if (prob->internal_name) {
-    prob_name = prob->internal_name;
-  }
+  resolve_problem_dir_path(base_dir, sizeof(base_dir), global, prob, prob->problem_dir, NULL);
 
   if (!entry) {
-    if (variant < 0 || prob->variant_num <= 0) {
-      snprintf(buf, bufsize, "%s/%s", path1, prob_name);
+    if (variant < 0 || variant_num <= 0) {
+      snprintf(buf, bufsize, "%s", base_dir);
     } else {
-      snprintf(buf, bufsize, "%s/%s-%d", path1, prob_name, variant);
+      snprintf(buf, bufsize, "%s-%d", base_dir, variant);
     }
   } else {
-    if (variant < 0 || prob->variant_num <= 0) {
-      snprintf(buf, bufsize, "%s/%s/%s", path1, prob_name, entry);
+    if (variant < 0 || variant_num <= 0) {
+      snprintf(buf, bufsize, "%s/%s", base_dir, entry);
     } else {
-      snprintf(buf, bufsize, "%s/%s-%d/%s", path1, prob_name, variant, entry);
+      snprintf(buf, bufsize, "%s-%d/%s", base_dir, variant, entry);
     }
   }
 
