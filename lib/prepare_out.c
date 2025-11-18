@@ -1146,6 +1146,13 @@ prepare_unparse_prob(
   if (!prob->abstract && prob->uuid && prob->uuid[0]) {
     fprintf(f, "uuid = \"%s\"\n", CARMOR(prob->uuid));
   }
+  if (!prob->abstract && prob->variant_num > 0) {
+    fprintf(f, "variant_num = %d\n", prob->variant_num);
+  }
+  if ((prob->abstract > 0 && prob->autoassign_variants > 0)
+      || (!prob->abstract && prob->autoassign_variants >= 0)) {
+    unparse_bool(f, "autoassign_variants", prob->autoassign_variants);
+  }
   if (prob->variant_problem_dirs) {
     for (int i = 0; prob->variant_problem_dirs[i]; ++i) {
       fprintf(f, "problem_dir = \"%s\"\n", CARMOR(prob->variant_problem_dirs[i]));
@@ -1597,14 +1604,6 @@ prepare_unparse_prob(
   do_xstr(f, &ab, "score_view", prob->score_view);
   do_xstr(f, &ab, "statement_env", prob->statement_env);
 
-  if (!prob->abstract && prob->variant_num > 0) {
-    fprintf(f, "variant_num = %d\n", prob->variant_num);
-  }
-  if ((prob->abstract > 0 && prob->autoassign_variants > 0)
-      || (!prob->abstract && prob->autoassign_variants >= 0)) {
-    unparse_bool(f, "autoassign_variants", prob->autoassign_variants);
-  }
-
   if (prob->max_user_run_count > 0) {
     fprintf(f, "max_user_run_count = %d\n", prob->max_user_run_count);
   }
@@ -1822,6 +1821,10 @@ prepare_unparse_actual_prob(
     fprintf(f, "plugin_entry_name = \"%s\"\n", CARMOR(prob->plugin_entry_name));
   }
   if (prob->uuid && prob->uuid[0]) fprintf(f, "uuid = \"%s\"\n", CARMOR(prob->uuid));
+  if (prob->variant_num > 0)
+    fprintf(f, "variant_num = %d\n", prob->variant_num);
+  if (prob->autoassign_variants > 0)
+    unparse_bool(f, "autoassign_variants", prob->autoassign_variants);
   if (prob->variant_problem_dirs) {
     for (int i = 0; prob->variant_problem_dirs[i]; ++i) {
       fprintf(f, "problem_dir = \"%s\"\n", CARMOR(prob->variant_problem_dirs[i]));
@@ -2104,11 +2107,6 @@ prepare_unparse_actual_prob(
   do_xstr(f, &ab, "score_view", prob->score_view);
   do_xstr(f, &ab, "score_view_text", prob->score_view_text);
   do_xstr(f, &ab, "statement_env", prob->statement_env);
-
-  if (prob->variant_num > 0)
-    fprintf(f, "variant_num = %d\n", prob->variant_num);
-   if (prob->autoassign_variants > 0)
-    unparse_bool(f, "autoassign_variants", prob->autoassign_variants);
 
   if (prob->use_ac_not_ok > 0)
     unparse_bool(f, "use_ac_not_ok", prob->use_ac_not_ok);
