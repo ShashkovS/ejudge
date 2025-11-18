@@ -842,6 +842,8 @@ struct section_problem_data
   int type;
   /** number of variants for this problem */
   int variant_num;
+  /** flag indicating that variant_num enabling variant mode has been parsed */
+  int variant_num_parsed;
   /** score for successful solution */
   int full_score;
   /** score for successful user-visible solution (separate_user_score mode) */

@@ -3164,36 +3164,34 @@ prepare_problem(
     prob->variant_num = 0;
   }
 
+  if (!prob->variant_num_parsed && prob->variant_num > 0) {
+    prob->variant_num_parsed = 1;
+  } else if (!prob->variant_num_parsed && aprob && aprob->variant_num_parsed > 0) {
+    prob->variant_num_parsed = 1;
+  }
+
+  int variant_dir_count = prob->variant_problem_dirs
+    ? sarray_len((char**) prob->variant_problem_dirs) : 0;
+
   if (prob->variant_problem_dirs) {
-    int dir_count = sarray_len((char**) prob->variant_problem_dirs);
     prepare_sync_problem_dir_from_variants(prob);
-    if (prob->variant_num > 1) {
-      if (dir_count == 0) {
-        const unsigned char *prob_name = prob->short_name[0]
-          ? prob->short_name
-          : (prob->internal_name ? prob->internal_name : (const unsigned char *) "?");
-        err("problem %s: variant_num is %d but no problem_dir entries provided", prob_name, prob->variant_num);
-        return -1;
-      }
-      if (dir_count != prob->variant_num) {
-        const unsigned char *prob_name = prob->short_name[0]
-          ? prob->short_name
-          : (prob->internal_name ? prob->internal_name : (const unsigned char *) "?");
-        err("problem %s: variant_num is %d but %d problem_dir entries provided", prob_name, prob->variant_num, dir_count);
-        return -1;
-      }
-    } else if (dir_count > 1) {
+  }
+
+  if (prob->variant_num > 0) {
+    if (variant_dir_count > 0
+        && variant_dir_count != 1
+        && variant_dir_count != prob->variant_num) {
       const unsigned char *prob_name = prob->short_name[0]
         ? prob->short_name
         : (prob->internal_name ? prob->internal_name : (const unsigned char *) "?");
-      err("problem %s: multiple problem_dir entries require variant_num > 1", prob_name);
+      err("problem %s: variant_num is %d but %d problem_dir entries provided", prob_name, prob->variant_num, variant_dir_count);
       return -1;
     }
-  } else if (prob->variant_num > 1) {
+  } else if (variant_dir_count > 0) {
     const unsigned char *prob_name = prob->short_name[0]
       ? prob->short_name
       : (prob->internal_name ? prob->internal_name : (const unsigned char *) "?");
-    err("problem %s: variant_num is %d but no problem_dir entries provided", prob_name, prob->variant_num);
+    err("problem %s: problem_dir entries require variant_num > 0", prob_name);
     return -1;
   }
 
@@ -6068,9 +6066,17 @@ prepare_set_prob_value(
   INHERIT_BOOLEAN(manual_checking);
 
   case CNTSPROB_problem_dir:
+    if (!out->variant_num_parsed && out->variant_num > 0) {
+      out->variant_num_parsed = 1;
+    } else if (!out->variant_num_parsed && abstr && abstr->variant_num_parsed > 0) {
+      out->variant_num_parsed = 1;
+    }
     if (!out->variant_problem_dirs && abstr && abstr->variant_problem_dirs) {
       out->variant_problem_dirs = (unsigned char **)
         sarray_copy((char**) abstr->variant_problem_dirs);
+      if (out->variant_problem_dirs && abstr->variant_problem_dirs) {
+        out->variant_num_parsed = 1;
+      }
     }
     if (out->variant_problem_dirs) {
       int out_len = sarray_len((char**) out->variant_problem_dirs);
@@ -7015,9 +7021,10 @@ get_advanced_layout_path(
   const unsigned char *prob_name;
   const unsigned char *dir_value = NULL;
   int use_suffix = 0;
+  int dir_count = 0;
 
   if (prob && prob->variant_problem_dirs) {
-    int dir_count = sarray_len((char**) prob->variant_problem_dirs);
+    dir_count = sarray_len((char**) prob->variant_problem_dirs);
     if (variant > 0) {
       if (variant <= dir_count && prob->variant_problem_dirs[variant - 1]
           && prob->variant_problem_dirs[variant - 1][0]) {
@@ -7040,9 +7047,12 @@ get_advanced_layout_path(
     dir_value = prob->problem_dir;
   }
 
-  if (prob && prob->variant_num > 0 && variant > 0
-      && (!prob->variant_problem_dirs || use_suffix)) {
-    use_suffix = 1;
+  if (prob && prob->variant_num > 0 && variant > 0) {
+    if (dir_count == 0) {
+      use_suffix = 1;
+    } else if (dir_count == 1) {
+      use_suffix = 1;
+    }
   }
 
   if (dir_value && dir_value[0] == '/') {

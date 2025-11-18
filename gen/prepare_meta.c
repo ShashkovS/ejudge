@@ -1449,6 +1449,7 @@ void cntsprob_copy(struct section_problem_data *dst, const struct section_proble
   dst->tester_id = src->tester_id;
   dst->type = src->type;
   dst->variant_num = src->variant_num;
+  dst->variant_num_parsed = src->variant_num_parsed;
   dst->full_score = src->full_score;
   dst->full_user_score = src->full_user_score;
   dst->min_score_1 = src->min_score_1;

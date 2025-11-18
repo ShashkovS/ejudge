@@ -114,14 +114,19 @@ append_problem_dir_entry(struct section_problem_data *prob,
 {
   if (!prob || !value) return;
 
-  char **old_entries = (char**) prob->variant_problem_dirs;
-  char **new_entries = sarray_append(old_entries, value);
-  if (old_entries && old_entries != new_entries) {
-    xfree(old_entries);
-  }
-  prob->variant_problem_dirs = (unsigned char **) new_entries;
+  if (prob->variant_num_parsed > 0) {
+    char **old_entries = (char**) prob->variant_problem_dirs;
+    char **new_entries = sarray_append(old_entries, value);
+    if (old_entries && old_entries != new_entries) {
+      xfree(old_entries);
+    }
+    prob->variant_problem_dirs = (unsigned char **) new_entries;
 
-  sync_problem_dir_from_variants(prob);
+    sync_problem_dir_from_variants(prob);
+  } else {
+    xfree(prob->problem_dir);
+    prob->problem_dir = xstrdup(value);
+  }
 }
 
 static int
@@ -1218,6 +1223,20 @@ copy_param(
       return 0;
     }
 
+    if (sinfo->mm == &cntsprob_methods && !strcmp(varname, "variant_num")) {
+      struct section_problem_data *prob = (struct section_problem_data *) cfg;
+      if (meta_parse_string(stderr, ps->f_stack->lineno - 1, cfg, field_id, sinfo->mm,
+                            varname, varvalue, ps->charset_id) < 0) {
+        return -1;
+      }
+      prob->variant_num_parsed = prob->variant_num > 0;
+      if (prob->variant_num_parsed <= 0 && prob->variant_problem_dirs) {
+        sarray_free((char**) prob->variant_problem_dirs);
+        prob->variant_problem_dirs = NULL;
+      }
+      return 0;
+    }
+
     if (meta_parse_string(stderr, ps->f_stack->lineno - 1, cfg, field_id, sinfo->mm,
                           varname, varvalue, ps->charset_id) < 0) {
       return -1;
@@ -1246,6 +1265,22 @@ copy_param(
     if (decoded) {
       append_problem_dir_entry(prob, decoded);
       xfree(decoded);
+    }
+    return 0;
+  }
+
+  if (!strcmp(sinfo->name, "problem") && !strcmp(varname, "variant_num")) {
+    struct section_problem_data *prob = (struct section_problem_data *) cfg;
+    int v = 0;
+    if (size_str_to_num(varvalue, &v) < 0) {
+      fprintf(stderr, "%d: invalid value of numeric parameter for '%s'\n", ps->f_stack->lineno - 1, varname);
+      return -1;
+    }
+    prob->variant_num = v;
+    prob->variant_num_parsed = prob->variant_num > 0;
+    if (prob->variant_num_parsed <= 0 && prob->variant_problem_dirs) {
+      sarray_free((char**) prob->variant_problem_dirs);
+      prob->variant_problem_dirs = NULL;
     }
     return 0;
   }
