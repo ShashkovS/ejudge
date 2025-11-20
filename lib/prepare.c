@@ -7138,7 +7138,6 @@ get_advanced_layout_path(
   const unsigned char *prob_dir = NULL;
 
   if (prob) {
-    prob_dir = NULL;
     if (prob->problem_dirs && prob->problem_dirs[0]) {
       int idx = variant > 0 ? variant - 1 : 0;
       int total = get_problem_dir_count(prob->problem_dirs);
@@ -7149,34 +7148,34 @@ get_advanced_layout_path(
     }
   }
 
-  if (prob_dir && os_IsAbsolutePath(prob_dir)) {
-    if (!entry) {
-      snprintf(buf, bufsize, "%s", prob_dir);
-    } else {
-      snprintf(buf, bufsize, "%s/%s", prob_dir, entry);
-    }
-    debug_log_path("get_advanced_layout_path_abs", prob, variant, entry, buf);
-    return buf;
-  }
-
   build_default_problems_root(path1, sizeof(path1), global);
 
-  if (!prob) {
-    snprintf(buf, bufsize, "%s", path1);
-    return buf;
-  }
-
   if (!prob_dir || !prob_dir[0]) {
-    prob_dir = prob->internal_name ? prob->internal_name : prob->short_name;
+    prob_dir = prob ? (prob->internal_name ? prob->internal_name : prob->short_name) : NULL;
   }
 
-  if (!entry) {
-    snprintf(buf, bufsize, "%s/%s", path1, prob_dir);
+  if (prob_dir) {
+    path_t full;
+    if (os_IsAbsolutePath(prob_dir)) {
+      snprintf(full, sizeof(full), "%s", prob_dir);
+    } else {
+      snprintf(full, sizeof(full), "%s/%s", path1, prob_dir);
+    }
+    path_normalize(full, sizeof(full));
+    if (!entry) {
+      snprintf(buf, bufsize, "%s", full);
+    } else {
+      snprintf(buf, bufsize, "%s/%s", full, entry);
+    }
   } else {
-    snprintf(buf, bufsize, "%s/%s/%s", path1, prob_dir, entry);
+    if (!entry) {
+      snprintf(buf, bufsize, "%s", path1);
+    } else {
+      snprintf(buf, bufsize, "%s/%s", path1, entry);
+    }
   }
 
-  debug_log_path("get_advanced_layout_path_rel", prob, variant, entry, buf);
+  debug_log_path("get_advanced_layout_path", prob, variant, entry, buf);
   return buf;
 }
 
