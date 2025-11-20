@@ -3345,17 +3345,23 @@ prob_instr(
   mkpath(conf_path, root_dir, conf_dir, "conf");
 
   resolved_dirs = resolve_problem_dirs_ui(root_dir, global, tmp_prob, abstr);
+  if (resolved_dirs && resolved_dirs[0]) {
+    xfree(tmp_prob->problem_dir);
+    tmp_prob->problem_dir = xstrdup(resolved_dirs[0]);
+    sarray_free((char**) tmp_prob->problem_dirs);
+    tmp_prob->problem_dirs = resolved_dirs;
+  }
   fprintf(f, "<p><b>Problem directory:</b></p>\n");
   fprintf(f, "<table border=\"1\">\n");
   if (prob->variant_num > 0) {
-    for (variant = 0; resolved_dirs && resolved_dirs[variant]; ++variant) {
-      report_directory(f, resolved_dirs[variant], variant + 1);
+    for (variant = 0; tmp_prob->problem_dirs && tmp_prob->problem_dirs[variant]; ++variant) {
+      report_directory(f, tmp_prob->problem_dirs[variant], variant + 1);
     }
-    if (!resolved_dirs || !resolved_dirs[0]) {
+    if (!tmp_prob->problem_dirs || !tmp_prob->problem_dirs[0]) {
       report_directory(f, "(undefined)", 1);
     }
-  } else if (resolved_dirs && resolved_dirs[0]) {
-    report_directory(f, resolved_dirs[0], -1);
+  } else if (tmp_prob->problem_dirs && tmp_prob->problem_dirs[0]) {
+    report_directory(f, tmp_prob->problem_dirs[0], -1);
   } else {
     report_directory(f, "(undefined)", -1);
   }
@@ -3546,12 +3552,6 @@ prob_instr(
   fprintf(f, "\n");
 
   tmp_prob = prepare_problem_free(tmp_prob);
-  if (resolved_dirs) {
-    for (int i = 0; resolved_dirs[i]; ++i) {
-      xfree(resolved_dirs[i]);
-    }
-    xfree(resolved_dirs);
-  }
   html_armor_free(&ab);
 }
 
