@@ -2699,6 +2699,7 @@ resolve_problem_dirs(
   }
 
   path_t default_root;
+  path_t abstr_dir_buf;
   build_default_problems_root(default_root, sizeof(default_root), global);
 
   if (aprob) {
@@ -2707,7 +2708,12 @@ resolve_problem_dirs(
     } else if (aprob->problem_dirs && aprob->problem_dirs[0]) {
       abstract_base = aprob->problem_dirs[0];
     } else if (aprob->problem_dir && aprob->problem_dir[0]) {
-      abstract_base = aprob->problem_dir;
+      if (os_IsAbsolutePath(aprob->problem_dir)) {
+        abstract_base = aprob->problem_dir;
+      } else {
+        snprintf(abstr_dir_buf, sizeof(abstr_dir_buf), "%s/%s", default_root, aprob->problem_dir);
+        abstract_base = abstr_dir_buf;
+      }
     }
   }
   if (!abstract_base) abstract_base = default_root;
