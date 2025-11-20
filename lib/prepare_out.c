@@ -3255,13 +3255,19 @@ handle_file(
 {
   path_t path = { 0 };
   int variant;
+  unsigned char *base_path = NULL;
 
   fprintf(f, "<table border=\"1\">\n");
   if (prob->variant_num > 0) {
-    for (variant = 0; variant <= prob->variant_num; ++variant) {
-      if (global->advanced_layout > 0) {
-        get_advanced_layout_path(path, sizeof(path), global, prob, file,
-                                 variant);
+    for (variant = 1; variant <= prob->variant_num; ++variant) {
+      if (prob->problem_dirs && prob->problem_dirs[variant - 1]) {
+        if (file && file[0]) {
+          snprintf(path, sizeof(path), "%s/%s", prob->problem_dirs[variant - 1], file);
+        } else {
+          snprintf(path, sizeof(path), "%s", prob->problem_dirs[variant - 1]);
+        }
+      } else if (global->advanced_layout > 0) {
+        get_advanced_layout_path(path, sizeof(path), global, prob, file, variant);
       } else {
         prepare_insert_variant_num(path, sizeof(path), file, variant);
       }
@@ -3303,8 +3309,15 @@ handle_directory(
   if (prob->variant_num > 0) {
     for (variant = 1; variant <= prob->variant_num; ++variant) {
       if (global->advanced_layout > 0) {
-        get_advanced_layout_path(path, sizeof(path), global, prob, dir2,
-                                 variant);
+        if (prob->problem_dirs && prob->problem_dirs[variant - 1]) {
+          if (dir2 && dir2[0]) {
+            snprintf(path, sizeof(path), "%s/%s", prob->problem_dirs[variant - 1], dir2);
+          } else {
+            snprintf(path, sizeof(path), "%s", prob->problem_dirs[variant - 1]);
+          }
+        } else {
+          get_advanced_layout_path(path, sizeof(path), global, prob, dir2, variant);
+        }
       } else {
         snprintf(path, sizeof(path), "%s-%d", path2, variant);
       }

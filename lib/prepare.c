@@ -2662,6 +2662,24 @@ debug_log_problem_dirs(
   fclose(df);
 }
 
+static void
+debug_log_path(
+        const char *stage,
+        const struct section_problem_data *prob,
+        int variant,
+        const unsigned char *entry,
+        const unsigned char *path)
+{
+  static const char log_path[] = "/home/judges/var/problem_dir.log";
+  FILE *df = fopen(log_path, "a");
+  if (!df) return;
+  fprintf(df, "# debug delme stage=%s id=%d variant=%d entry=%s path=%s\n",
+          stage, prob ? prob->id : -1, variant,
+          entry ? (const char*) entry : "(null)",
+          path ? (const char*) path : "(null)");
+  fclose(df);
+}
+
 static int
 resolve_problem_dirs(
         struct section_global_data *global,
@@ -7121,6 +7139,7 @@ get_advanced_layout_path(
     } else {
       snprintf(buf, bufsize, "%s/%s", prob_dir, entry);
     }
+    debug_log_path("get_advanced_layout_path_abs", prob, variant, entry, buf);
     return buf;
   }
 
@@ -7141,6 +7160,7 @@ get_advanced_layout_path(
     snprintf(buf, bufsize, "%s/%s/%s", path1, prob_dir, entry);
   }
 
+  debug_log_path("get_advanced_layout_path_rel", prob, variant, entry, buf);
   return buf;
 }
 
