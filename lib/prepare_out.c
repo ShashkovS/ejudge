@@ -3231,25 +3231,33 @@ prob_instr(
   tmp_prob = prepare_copy_problem(prob);
   mkpath(conf_path, root_dir, conf_dir, "conf");
 
-  if (global->advanced_layout > 0) {
-    fprintf(f, "<p><b>Problem directory:</b></p>\n");
-    fprintf(f, "<table border=\"1\">\n");
+  fprintf(f, "<p><b>Problem directory:</b></p>\n");
+  fprintf(f, "<table border=\"1\">\n");
+  int dir_count = 0;
+  if (tmp_prob->problem_dirs) {
+    while (tmp_prob->problem_dirs[dir_count]) dir_count++;
+  }
+  if (dir_count > 0) {
     if (prob->variant_num > 0) {
-      for (variant = 1; variant <= prob->variant_num; ++variant) {
-        get_advanced_layout_path(prob_path, sizeof(prob_path),
-                                 global, tmp_prob, NULL, variant);
-        report_directory(f, prob_path, variant);
+      for (variant = 0; variant < dir_count; ++variant) {
+        report_directory(f, tmp_prob->problem_dirs[variant], variant + 1);
       }
     } else {
-      get_advanced_layout_path(prob_path, sizeof(prob_path),
-                               global, tmp_prob, NULL, -1);
+      report_directory(f, tmp_prob->problem_dirs[0], -1);
+    }
+  } else {
+    get_advanced_layout_path(prob_path, sizeof(prob_path),
+                             global, tmp_prob, NULL, prob->variant_num > 0 ? 1 : -1);
+    if (prob->variant_num > 0) {
+      report_directory(f, prob_path, 1);
+    } else {
       report_directory(f, prob_path, -1);
     }
-    fprintf(f, "</table>\n");
-
-    fprintf(f, "<p><b>Makefile (optional):</b></p>\n");
-    handle_file(f, global, tmp_prob, "Makefile", 0);
   }
+  fprintf(f, "</table>\n");
+
+  fprintf(f, "<p><b>Makefile (optional):</b></p>\n");
+  handle_file(f, global, tmp_prob, "Makefile", 0);
   prepare_set_prob_value(CNTSPROB_md_file, tmp_prob, abstr, global);
   if (tmp_prob->md_file && tmp_prob->md_file[0]) {
     fprintf(f, "<p><b>Problem statement markdown file:</b></p>\n");

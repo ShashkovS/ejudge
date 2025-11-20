@@ -1371,7 +1371,13 @@ super_html_new_check_tests(
     }
 
     if (tmp_prob->problem_dir && tmp_prob->problem_dir[0]) {
-      fprintf(flog, "problem_dir = %s\n", tmp_prob->problem_dir);
+      if (tmp_prob->variant_num > 0 && tmp_prob->problem_dirs) {
+        for (variant = 0; tmp_prob->problem_dirs[variant]; ++variant) {
+          fprintf(flog, "problem_dir[%d] = %s\n", variant + 1, tmp_prob->problem_dirs[variant]);
+        }
+      } else {
+        fprintf(flog, "problem_dir = %s\n", tmp_prob->problem_dir);
+      }
     }
 
     if (global->advanced_layout > 0) {
