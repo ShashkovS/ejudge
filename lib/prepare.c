@@ -2644,7 +2644,7 @@ debug_log_problem_dirs(
 
   fprintf(df, "# debug delme stage=%s id=%d short=%s abstract=%d variant_num=%d\n",
           stage, prob ? prob->id : -1,
-          (prob && prob->short_name) ? (const char*) prob->short_name : "(null)",
+          prob ? (const char*) prob->short_name : "(null)",
           prob ? prob->abstract : -1,
           prob ? prob->variant_num : -1);
   if (prob) {
@@ -2740,7 +2740,7 @@ resolve_problem_dirs(
       base_name = prob->short_name;
     }
     unsigned char *base_dir = used_primary_for_abstract
-      ? xstrdup(prob->abstract_problem_dir)
+      ? (unsigned char*) xstrdup((const char*) prob->abstract_problem_dir)
       : resolve_problem_dir_single(prob->abstract_problem_dir, base_name);
     for (int i = 0; i < variant_count; ++i) {
       usprintf(&resolved[i], "%s-%d", base_dir, i + 1);
