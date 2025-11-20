@@ -2721,11 +2721,15 @@ resolve_problem_dirs(
   XCALLOC(resolved, variant_count + 1);
 
   if (variant_count == 1) {
-    const unsigned char *base_name = primary_raw;
-    if (!base_name || !*base_name) {
-      base_name = prob->internal_name ? prob->internal_name : prob->short_name;
+    if (raw_count > 0 && used_primary_for_abstract) {
+      resolved[0] = (unsigned char*) xstrdup((const char*) prob->abstract_problem_dir);
+    } else {
+      const unsigned char *base_name = primary_raw;
+      if (!base_name || !*base_name) {
+        base_name = prob->internal_name ? prob->internal_name : prob->short_name;
+      }
+      resolved[0] = resolve_problem_dir_single(prob->abstract_problem_dir, base_name);
     }
-    resolved[0] = resolve_problem_dir_single(prob->abstract_problem_dir, base_name);
   } else if (raw_count == variant_count && raw_count > 1) {
     for (int i = 0; i < variant_count; ++i) {
       resolved[i] = resolve_problem_dir_single(prob->abstract_problem_dir, raw_dirs[i]);
