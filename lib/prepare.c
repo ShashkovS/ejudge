@@ -2633,6 +2633,35 @@ resolve_problem_dir_single(
   return xstrdup(tmp);
 }
 
+static void
+debug_log_problem_dirs(
+        const char *stage,
+        const struct section_problem_data *prob)
+{
+  static const char log_path[] = "/home/judges/var/problem_dir.log";
+  FILE *df = fopen(log_path, "a");
+  if (!df) return;
+
+  fprintf(df, "# debug delme stage=%s id=%d short=%s abstract=%d variant_num=%d\n",
+          stage, prob ? prob->id : -1,
+          (prob && prob->short_name) ? (const char*) prob->short_name : "(null)",
+          prob ? prob->abstract : -1,
+          prob ? prob->variant_num : -1);
+  if (prob) {
+    fprintf(df, "# debug delme abstract_problem_dir=%s\n",
+            prob->abstract_problem_dir ? (const char*) prob->abstract_problem_dir : "(null)");
+    fprintf(df, "# debug delme problem_dir=%s\n",
+            prob->problem_dir ? (const char*) prob->problem_dir : "(null)");
+    if (prob->problem_dirs) {
+      for (int i = 0; prob->problem_dirs[i]; ++i) {
+        fprintf(df, "# debug delme problem_dirs[%d]=%s\n", i, prob->problem_dirs[i]);
+      }
+    }
+  }
+
+  fclose(df);
+}
+
 static int
 resolve_problem_dirs(
         struct section_global_data *global,
@@ -2721,6 +2750,8 @@ resolve_problem_dirs(
   } else {
     prob->problem_dir = NULL;
   }
+
+  debug_log_problem_dirs(prob->abstract ? "abstract_resolved" : "concrete_resolved", prob);
 
   return 0;
 }
