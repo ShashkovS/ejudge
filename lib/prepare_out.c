@@ -3453,6 +3453,7 @@ prob_instr(
   if (tmp_prob->style_checker_cmd && tmp_prob->style_checker_cmd[0]) {
     fprintf(f, "<p><b>Style checker:</b></p>\n");
 
+    path_t prob_path;
     sformat_message(prob_path, sizeof(prob_path), 0,
                     tmp_prob->style_checker_cmd, global, tmp_prob,
                     0, 0, 0, 0, 0, 0);
