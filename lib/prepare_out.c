@@ -127,6 +127,7 @@ resolve_problem_dirs_ui(
     } else {
       path_t tmp;
       snprintf(tmp, sizeof(tmp), "%s/%s", abstract_base, base);
+      path_normalize(tmp, sizeof(tmp));
       result[0] = xstrdup(tmp);
     }
   } else if (raw_count == variant_count && raw_count > 1) {
@@ -137,6 +138,7 @@ resolve_problem_dirs_ui(
       } else {
         path_t tmp;
         snprintf(tmp, sizeof(tmp), "%s/%s", abstract_base, entry);
+        path_normalize(tmp, sizeof(tmp));
         result[i] = xstrdup(tmp);
       }
     }
@@ -156,6 +158,7 @@ resolve_problem_dirs_ui(
     } else {
       snprintf(base_path, sizeof(base_path), "%s/%s", abstract_base, base);
     }
+    path_normalize(base_path, sizeof(base_path));
     for (int i = 0; i < variant_count; ++i) {
       path_t tmp;
       snprintf(tmp, sizeof(tmp), "%s-%d", base_path, i + 1);

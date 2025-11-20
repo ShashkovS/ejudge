@@ -2626,10 +2626,14 @@ resolve_problem_dir_single(
     return xstrdup(dir);
   }
   if (!dir || !*dir) {
-    return xstrdup(base_dir);
+    path_t norm;
+    snprintf(norm, sizeof(norm), "%s", base_dir);
+    path_normalize(norm, sizeof(norm));
+    return xstrdup(norm);
   }
 
   snprintf(tmp, sizeof(tmp), "%s/%s", base_dir, dir);
+  path_normalize(tmp, sizeof(tmp));
   return xstrdup(tmp);
 }
 
@@ -2728,7 +2732,10 @@ resolve_problem_dirs(
   prob->abstract_problem_dir = NULL;
   int used_primary_for_abstract = 0;
   if (variant_count > 1) {
-    prob->abstract_problem_dir = xstrdup(abstract_base);
+    path_t norm;
+    snprintf(norm, sizeof(norm), "%s", abstract_base);
+    path_normalize(norm, sizeof(norm));
+    prob->abstract_problem_dir = xstrdup(norm);
   } else {
     if (primary_raw && os_IsAbsolutePath(primary_raw)) {
       prob->abstract_problem_dir = xstrdup(primary_raw);
@@ -2737,7 +2744,10 @@ resolve_problem_dirs(
       usprintf(&prob->abstract_problem_dir, "%s/%s", abstract_base, primary_raw);
       used_primary_for_abstract = 1;
     } else {
-      prob->abstract_problem_dir = xstrdup(abstract_base);
+      path_t norm;
+      snprintf(norm, sizeof(norm), "%s", abstract_base);
+      path_normalize(norm, sizeof(norm));
+      prob->abstract_problem_dir = xstrdup(norm);
     }
   }
 
