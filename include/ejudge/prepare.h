@@ -1085,7 +1085,11 @@ struct section_problem_data
   unsigned char *plugin_entry_name;
   /** problem UUID */
   unsigned char *uuid;
-  /** problem directory (relative to problems or absolute) */
+  /** abstract problem dir resolved for inheritance */
+  unsigned char *abstract_problem_dir;
+  /** resolved problem directories (one per variant, NULL-terminated) */
+  unsigned char **problem_dirs;
+  /** problem directory (relative to problems or absolute, first entry legacy) */
   unsigned char *problem_dir;
   /** directory with tests */
   unsigned char *test_dir;
