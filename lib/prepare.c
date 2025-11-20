@@ -2654,11 +2654,14 @@ resolve_problem_dirs(
   path_t default_root;
   build_default_problems_root(default_root, sizeof(default_root), global);
 
-  if (aprob && aprob->abstract_problem_dir && aprob->abstract_problem_dir[0]) {
-    abstract_base = aprob->abstract_problem_dir;
-  } else {
-    abstract_base = default_root;
+  if (aprob) {
+    if (aprob->abstract_problem_dir && aprob->abstract_problem_dir[0]) {
+      abstract_base = aprob->abstract_problem_dir;
+    } else if (aprob->problem_dirs && aprob->problem_dirs[0]) {
+      abstract_base = aprob->problem_dirs[0];
+    }
   }
+  if (!abstract_base) abstract_base = default_root;
 
   if (raw_count > 0) {
     primary_raw = raw_dirs[0];
