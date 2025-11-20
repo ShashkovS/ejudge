@@ -2702,10 +2702,13 @@ resolve_problem_dirs(
 
   xfree(prob->abstract_problem_dir);
   prob->abstract_problem_dir = NULL;
+  int used_primary_for_abstract = 0;
   if (primary_raw && os_IsAbsolutePath(primary_raw)) {
     prob->abstract_problem_dir = xstrdup(primary_raw);
+    used_primary_for_abstract = 1;
   } else if (primary_raw && *primary_raw) {
     usprintf(&prob->abstract_problem_dir, "%s/%s", abstract_base, primary_raw);
+    used_primary_for_abstract = 1;
   } else {
     prob->abstract_problem_dir = xstrdup(abstract_base);
   }
@@ -2714,11 +2717,15 @@ resolve_problem_dirs(
   XCALLOC(resolved, variant_count + 1);
 
   if (variant_count == 1) {
-    const unsigned char *base_name = primary_raw;
-    if (!base_name || !*base_name) {
-      base_name = prob->internal_name ? prob->internal_name : prob->short_name;
+    if (raw_count > 0 && used_primary_for_abstract) {
+      resolved[0] = xstrdup(prob->abstract_problem_dir);
+    } else {
+      const unsigned char *base_name = primary_raw;
+      if (!base_name || !*base_name) {
+        base_name = prob->internal_name ? prob->internal_name : prob->short_name;
+      }
+      resolved[0] = resolve_problem_dir_single(prob->abstract_problem_dir, base_name);
     }
-    resolved[0] = resolve_problem_dir_single(prob->abstract_problem_dir, base_name);
   } else if (raw_count == variant_count && raw_count > 1) {
     for (int i = 0; i < variant_count; ++i) {
       resolved[i] = resolve_problem_dir_single(prob->abstract_problem_dir, raw_dirs[i]);
@@ -2732,7 +2739,9 @@ resolve_problem_dirs(
     } else {
       base_name = prob->short_name;
     }
-    unsigned char *base_dir = resolve_problem_dir_single(prob->abstract_problem_dir, base_name);
+    unsigned char *base_dir = used_primary_for_abstract
+      ? xstrdup(prob->abstract_problem_dir)
+      : resolve_problem_dir_single(prob->abstract_problem_dir, base_name);
     for (int i = 0; i < variant_count; ++i) {
       usprintf(&resolved[i], "%s-%d", base_dir, i + 1);
     }
@@ -4272,6 +4281,7 @@ set_defaults(
     }
     prepare_set_abstr_problem_defaults(aprob, g);
     if (resolve_problem_dirs(g, aprob, NULL) < 0) return -1;
+    debug_log_problem_dirs("abstract_final", aprob);
   }
 
   for (i = 1; i <= state->max_prob && mode != PREPARE_COMPILE; i++) {
@@ -4279,6 +4289,7 @@ set_defaults(
     if (prepare_problem(config, cnts, g,
                         state->max_abstr_prob, state->abstr_probs,
                         prob) < 0) return -1;
+    debug_log_problem_dirs("concrete_final", prob);
   }
 
   if (mode == PREPARE_SERVE || mode == PREPARE_RUN) {
