@@ -2659,6 +2659,8 @@ resolve_problem_dirs(
       abstract_base = aprob->abstract_problem_dir;
     } else if (aprob->problem_dirs && aprob->problem_dirs[0]) {
       abstract_base = aprob->problem_dirs[0];
+    } else if (aprob->problem_dir && aprob->problem_dir[0]) {
+      abstract_base = aprob->problem_dir;
     }
   }
   if (!abstract_base) abstract_base = default_root;
@@ -2696,7 +2698,7 @@ resolve_problem_dirs(
     const unsigned char *base_name = NULL;
     if (raw_count == 1) {
       base_name = raw_dirs[0];
-    } else if (prob->internal_name) {
+    } else if (prob->internal_name && *prob->internal_name) {
       base_name = prob->internal_name;
     } else {
       base_name = prob->short_name;
