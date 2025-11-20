@@ -33,6 +33,10 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <errno.h>
 
 static const unsigned char *
 c_armor_2(
@@ -53,6 +57,115 @@ c_armor_2(
 }
 
 #define CARMOR(s) c_armor_buf(&ab, (s))
+
+static void
+build_default_problems_root(
+        path_t buf,
+        size_t bufsize,
+        const unsigned char *root_dir,
+        const struct section_global_data *global)
+{
+  if (global->problems_dir && global->problems_dir[0]) {
+    if (os_IsAbsolutePath(global->problems_dir)) {
+      snprintf(buf, bufsize, "%s", global->problems_dir);
+    } else {
+      snprintf(buf, bufsize, "%s/%s", root_dir, global->problems_dir);
+    }
+  } else {
+    snprintf(buf, bufsize, "%s/%s", root_dir, DFLT_G_PROBLEMS_DIR);
+  }
+}
+
+static unsigned char **
+resolve_problem_dirs_ui(
+        const unsigned char *root_dir,
+        const struct section_global_data *global,
+        const struct section_problem_data *prob,
+        const struct section_problem_data *abstr)
+{
+  path_t default_root;
+  path_t abstract_base_buf;
+  const unsigned char *abstract_base = NULL;
+  unsigned char **result = NULL;
+  int variant_count = prob->variant_num > 0 ? prob->variant_num : 1;
+
+  build_default_problems_root(default_root, sizeof(default_root), root_dir, global);
+
+  abstract_base = default_root;
+  if (abstr) {
+    if (abstr->problem_dir && abstr->problem_dir[0]) {
+      if (os_IsAbsolutePath(abstr->problem_dir)) {
+        abstract_base = abstr->problem_dir;
+      } else {
+        snprintf(abstract_base_buf, sizeof(abstract_base_buf), "%s/%s", default_root, abstr->problem_dir);
+        abstract_base = abstract_base_buf;
+      }
+    } else if (abstr->problem_dirs && abstr->problem_dirs[0]) {
+      abstract_base = abstr->problem_dirs[0];
+    }
+  }
+
+  int raw_count = 0;
+  if (prob->problem_dirs) {
+    while (prob->problem_dirs[raw_count]) raw_count++;
+  }
+  const unsigned char *single_raw = NULL;
+  if (raw_count == 0 && prob->problem_dir && prob->problem_dir[0]) {
+    single_raw = prob->problem_dir;
+    raw_count = 1;
+  }
+
+  XCALLOC(result, variant_count + 1);
+
+  if (variant_count == 1) {
+    const unsigned char *base = single_raw ? single_raw : NULL;
+    if (!base && prob->internal_name && prob->internal_name[0]) base = prob->internal_name;
+    if (!base) base = prob->short_name;
+
+    if (base && os_IsAbsolutePath(base)) {
+      result[0] = xstrdup(base);
+    } else {
+      path_t tmp;
+      snprintf(tmp, sizeof(tmp), "%s/%s", abstract_base, base);
+      result[0] = xstrdup(tmp);
+    }
+  } else if (raw_count == variant_count && raw_count > 1) {
+    for (int i = 0; i < variant_count; ++i) {
+      const unsigned char *entry = prob->problem_dirs ? prob->problem_dirs[i] : single_raw;
+      if (entry && os_IsAbsolutePath(entry)) {
+        result[i] = xstrdup(entry);
+      } else {
+        path_t tmp;
+        snprintf(tmp, sizeof(tmp), "%s/%s", abstract_base, entry);
+        result[i] = xstrdup(tmp);
+      }
+    }
+  } else {
+    const unsigned char *base = NULL;
+    if (single_raw) {
+      base = single_raw;
+    } else if (prob->internal_name && prob->internal_name[0]) {
+      base = prob->internal_name;
+    } else {
+      base = prob->short_name;
+    }
+
+    path_t base_path;
+    if (base && os_IsAbsolutePath(base)) {
+      snprintf(base_path, sizeof(base_path), "%s", base);
+    } else {
+      snprintf(base_path, sizeof(base_path), "%s/%s", abstract_base, base);
+    }
+    for (int i = 0; i < variant_count; ++i) {
+      path_t tmp;
+      snprintf(tmp, sizeof(tmp), "%s-%d", base_path, i + 1);
+      result[i] = xstrdup(tmp);
+    }
+  }
+
+  result[variant_count] = NULL;
+  return result;
+}
 
 static void
 unparse_bool(FILE *f, const unsigned char *name, int value)
@@ -3218,9 +3331,9 @@ prob_instr(
   struct section_problem_data *tmp_prob = 0;
   struct html_armor_buffer ab = HTML_ARMOR_INITIALIZER;
   path_t conf_path;
-  path_t prob_path;
   path_t sc_path;
   int variant;
+  unsigned char **resolved_dirs = NULL;
 
   fprintf(f, "<h3>Problem %s: %s</h3>\n", prob->short_name, ARMOR(prob->long_name));
   if (prob->variant_num > 0) {
@@ -3231,28 +3344,20 @@ prob_instr(
   tmp_prob = prepare_copy_problem(prob);
   mkpath(conf_path, root_dir, conf_dir, "conf");
 
+  resolved_dirs = resolve_problem_dirs_ui(root_dir, global, tmp_prob, abstr);
   fprintf(f, "<p><b>Problem directory:</b></p>\n");
   fprintf(f, "<table border=\"1\">\n");
-  int dir_count = 0;
-  if (tmp_prob->problem_dirs) {
-    while (tmp_prob->problem_dirs[dir_count]) dir_count++;
-  }
-  if (dir_count > 0) {
-    if (prob->variant_num > 0) {
-      for (variant = 0; variant < dir_count; ++variant) {
-        report_directory(f, tmp_prob->problem_dirs[variant], variant + 1);
-      }
-    } else {
-      report_directory(f, tmp_prob->problem_dirs[0], -1);
+  if (prob->variant_num > 0) {
+    for (variant = 0; resolved_dirs && resolved_dirs[variant]; ++variant) {
+      report_directory(f, resolved_dirs[variant], variant + 1);
     }
+    if (!resolved_dirs || !resolved_dirs[0]) {
+      report_directory(f, "(undefined)", 1);
+    }
+  } else if (resolved_dirs && resolved_dirs[0]) {
+    report_directory(f, resolved_dirs[0], -1);
   } else {
-    get_advanced_layout_path(prob_path, sizeof(prob_path),
-                             global, tmp_prob, NULL, prob->variant_num > 0 ? 1 : -1);
-    if (prob->variant_num > 0) {
-      report_directory(f, prob_path, 1);
-    } else {
-      report_directory(f, prob_path, -1);
-    }
+    report_directory(f, "(undefined)", -1);
   }
   fprintf(f, "</table>\n");
 
@@ -3440,6 +3545,12 @@ prob_instr(
   fprintf(f, "\n");
 
   tmp_prob = prepare_problem_free(tmp_prob);
+  if (resolved_dirs) {
+    for (int i = 0; resolved_dirs[i]; ++i) {
+      xfree(resolved_dirs[i]);
+    }
+    xfree(resolved_dirs);
+  }
   html_armor_free(&ab);
 }
 
