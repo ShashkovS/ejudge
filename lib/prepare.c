@@ -2654,8 +2654,7 @@ resolve_problem_dirs(
   path_t default_root;
   build_default_problems_root(default_root, sizeof(default_root), global);
 
-  abstract_base = default_root;
-  if (aprob && aprob->abstract_problem_dir) {
+  if (aprob && aprob->abstract_problem_dir && aprob->abstract_problem_dir[0]) {
     abstract_base = aprob->abstract_problem_dir;
   }
 
@@ -2667,12 +2666,19 @@ resolve_problem_dirs(
 
   xfree(prob->abstract_problem_dir);
   prob->abstract_problem_dir = NULL;
-  if (primary_raw && os_IsAbsolutePath(primary_raw)) {
-    prob->abstract_problem_dir = xstrdup(primary_raw);
-  } else if (!primary_raw || !*primary_raw) {
+  if (!abstract_base) {
+    if (primary_raw && os_IsAbsolutePath(primary_raw)) {
+      abstract_base = primary_raw;
+    } else if (!primary_raw || !*primary_raw) {
+      abstract_base = default_root;
+    } else {
+      usprintf(&prob->abstract_problem_dir, "%s/%s", default_root, primary_raw);
+      abstract_base = prob->abstract_problem_dir;
+    }
+  }
+
+  if (!prob->abstract_problem_dir) {
     prob->abstract_problem_dir = xstrdup(abstract_base);
-  } else {
-    usprintf(&prob->abstract_problem_dir, "%s/%s", abstract_base, primary_raw);
   }
 
   unsigned char **resolved = NULL;
@@ -4233,6 +4239,8 @@ set_defaults(
       err("abstract problem %s cannot have a superproblem", ish);
       return -1;
     }
+    prepare_set_abstr_problem_defaults(aprob, g);
+    if (resolve_problem_dirs(g, aprob, NULL) < 0) return -1;
   }
 
   for (i = 1; i <= state->max_prob && mode != PREPARE_COMPILE; i++) {
