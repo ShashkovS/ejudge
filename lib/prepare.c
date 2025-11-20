@@ -2656,6 +2656,8 @@ resolve_problem_dirs(
 
   if (aprob && aprob->abstract_problem_dir && aprob->abstract_problem_dir[0]) {
     abstract_base = aprob->abstract_problem_dir;
+  } else {
+    abstract_base = default_root;
   }
 
   if (raw_count > 0) {
@@ -2666,18 +2668,11 @@ resolve_problem_dirs(
 
   xfree(prob->abstract_problem_dir);
   prob->abstract_problem_dir = NULL;
-  if (!abstract_base) {
-    if (primary_raw && os_IsAbsolutePath(primary_raw)) {
-      abstract_base = primary_raw;
-    } else if (!primary_raw || !*primary_raw) {
-      abstract_base = default_root;
-    } else {
-      usprintf(&prob->abstract_problem_dir, "%s/%s", default_root, primary_raw);
-      abstract_base = prob->abstract_problem_dir;
-    }
-  }
-
-  if (!prob->abstract_problem_dir) {
+  if (primary_raw && os_IsAbsolutePath(primary_raw)) {
+    prob->abstract_problem_dir = xstrdup(primary_raw);
+  } else if (primary_raw && *primary_raw) {
+    usprintf(&prob->abstract_problem_dir, "%s/%s", abstract_base, primary_raw);
+  } else {
     prob->abstract_problem_dir = xstrdup(abstract_base);
   }
 
@@ -2690,11 +2685,11 @@ resolve_problem_dirs(
       base_name = prob->internal_name ? prob->internal_name : prob->short_name;
     }
     resolved[0] = resolve_problem_dir_single(prob->abstract_problem_dir, base_name);
-  } else if (raw_count == variant_count) {
+  } else if (raw_count == variant_count && raw_count > 1) {
     for (int i = 0; i < variant_count; ++i) {
       resolved[i] = resolve_problem_dir_single(prob->abstract_problem_dir, raw_dirs[i]);
     }
-  } else { // raw_count == 0 or 1
+  } else {
     const unsigned char *base_name = NULL;
     if (raw_count == 1) {
       base_name = raw_dirs[0];
