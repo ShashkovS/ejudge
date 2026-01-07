@@ -109,10 +109,16 @@
             xfree(internal_name); internal_name = NULL;
         }
         if (internal_name) {
-            other_prob = super_serve_find_problem(phr->ss, internal_name);
-            if (other_prob && other_prob != prob) {
-                fprintf(msg_f, "internal_name is not unique<br/>");
-                FAIL(SSERV_ERR_INVALID_PARAMETER);
+            int check_internal = 1;
+            if (prob->internal_name && !strcmp(internal_name, prob->internal_name)) {
+                check_internal = 0;
+            }
+            if (check_internal) {
+                other_prob = super_serve_find_problem(phr->ss, internal_name);
+                if (other_prob && other_prob != prob) {
+                    fprintf(msg_f, "internal_name is not unique<br/>");
+                    FAIL(SSERV_ERR_INVALID_PARAMETER);
+                }
             }
         }
         if (*super) {

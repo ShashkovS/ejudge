@@ -110,8 +110,17 @@ static const unsigned char * const form_row_attrs[]=
         if (resolved_prob && resolved_prob->abstract_problem_dir && resolved_prob->abstract_problem_dir[0]) {
             abs_dir = resolved_prob->abstract_problem_dir;
         }
-        if (abs_dir && abs_dir[0] && strcmp(abs_dir, default_problem_root) != 0) {
-            problem_dir_edit = xstrdup(abs_dir);
+        if (abs_dir && abs_dir[0]) {
+            size_t base_len = strlen(default_problem_root);
+            if (strcmp(abs_dir, default_problem_root) == 0) {
+                /* default path, keep empty */
+            } else if (base_len > 0
+                       && strncmp(abs_dir, default_problem_root, base_len) == 0
+                       && abs_dir[base_len] == '/') {
+                problem_dir_edit = xstrdup(abs_dir + base_len + 1);
+            } else {
+                problem_dir_edit = xstrdup(abs_dir);
+            }
         }
     } else {
         if (prob->problem_dirs && prob->problem_dirs[0]) {
@@ -212,7 +221,7 @@ static const unsigned char * const form_row_attrs[]=
         <%@expand MENU_TEXTFIELD "variant_num" "id" "Number of variants" "250" %>
         <div id="edit-problem_dir-div">
             <div style="width: 250px; display: inline-block; vertical-align: top;"><label style="display:block; width: 250px" for="edit-problem_dir">Problem dir:</label></div>
-            <textarea name="problem_dir" id="edit-problem_dir" rows="<s:v value="problem_dir_rows" />" cols="40" class="text ui-widget-content ui-corner-all" onchange="idDialogOnChange('problem_dir')"></textarea>
+            <textarea name="problem_dir" id="edit-problem_dir" rows="<s:v value="problem_dir_rows" />" cols="40" class="text ui-widget-content ui-corner-all" onchange="idDialogOnChange('problem_dir')" style="border-style: solid;"></textarea>
         </div>
         <%@expand MENU_YESNO3 "autoassign_variants" "id" "Assign variants automatically" "250" %>
 
