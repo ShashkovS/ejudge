@@ -127,6 +127,9 @@ static const unsigned char * const form_row_attrs[]=
             problem_dir_edit = xstrdup(prob->problem_dir);
         }
     }
+    if (!problem_dir_edit) {
+        problem_dir_edit = xstrdup("");
+    }
 
     (void) row;
     (void) head_row_attr;
