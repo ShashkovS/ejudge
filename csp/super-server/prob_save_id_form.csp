@@ -154,8 +154,8 @@
         prob->type = type_val;
         prob->variant_num = variant_num;
         prob->autoassign_variants = autoassign_variants;
-        sarray_free(prob->problem_dirs);
-        prob->problem_dirs = problem_dirs;
+        sarray_free((char **) prob->problem_dirs);
+        prob->problem_dirs = (unsigned char **) problem_dirs;
         problem_dirs = NULL;
         xfree(prob->problem_dir);
         prob->problem_dir = NULL;
